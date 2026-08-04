@@ -58,18 +58,45 @@ func handleEvent(ctx context.Context, event *rayleabot.EventContext) error {
 	if event.Event.EventType == "config.changed" {
 		return event.Result(map[string]any{"reloaded": true})
 	}
-	command := event.Event.Command()
-	if command != "fortune" && command != "fortune_stats" {
+	command := strings.TrimSpace(event.Event.Command())
+	if command == "" {
 		return event.Result(map[string]any{"handled": false})
 	}
 	current, err := loadSettings(ctx, event)
 	if err != nil {
 		return err
 	}
-	if command == "fortune_stats" {
+	switch matchConfiguredCommand(command, current) {
+	case "fortune":
+		return sendDailyFortune(ctx, event, current)
+	case "fortune_stats":
 		return sendStats(ctx, event)
+	default:
+		return event.Result(map[string]any{"handled": false})
 	}
-	return sendDailyFortune(ctx, event, current)
+}
+
+func matchConfiguredCommand(command string, current settings) string {
+	command = strings.TrimSpace(command)
+	if command == "" {
+		return ""
+	}
+	if commandMatches(command, current.TriggerCommands) {
+		return "fortune"
+	}
+	if commandMatches(command, current.StatsTriggerCommands) {
+		return "fortune_stats"
+	}
+	return ""
+}
+
+func commandMatches(command string, triggers []string) bool {
+	for _, trigger := range triggers {
+		if strings.TrimSpace(trigger) == command {
+			return true
+		}
+	}
+	return false
 }
 
 func loadSettings(ctx context.Context, event *rayleabot.EventContext) (settings, error) {

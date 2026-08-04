@@ -70,6 +70,29 @@ func TestFingerprintChangesWithDrawSettings(t *testing.T) {
 	}
 }
 
+func TestMatchConfiguredCommandUsesRuntimeTriggerNames(t *testing.T) {
+	current := settings{
+		TriggerCommands:      []string{"我的运势", " 今日运势 "},
+		StatsTriggerCommands: []string{"运势统计"},
+	}
+	tests := []struct {
+		command string
+		want    string
+	}{
+		{command: "我的运势", want: "fortune"},
+		{command: "今日运势", want: "fortune"},
+		{command: "运势统计", want: "fortune_stats"},
+		{command: "fortune", want: ""},
+		{command: "fortune_stats", want: ""},
+		{command: "未知命令", want: ""},
+	}
+	for _, test := range tests {
+		if got := matchConfiguredCommand(test.command, current); got != test.want {
+			t.Fatalf("matchConfiguredCommand(%q) = %q, want %q", test.command, got, test.want)
+		}
+	}
+}
+
 func TestStatsTrackStreaksAndReplacement(t *testing.T) {
 	stats := updateStats(emptyStats(), "大吉", "2026-08-01")
 	stats = updateStats(stats, "大吉", "2026-08-02")
