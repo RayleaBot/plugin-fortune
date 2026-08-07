@@ -1,8 +1,12 @@
 package plugin
 
 import (
+	"reflect"
+	"strings"
 	"testing"
 	"time"
+
+	rayleabot "github.com/RayleaBot/RayleaBot/sdk/go"
 )
 
 func TestDrawDailyIsStableAndUnique(t *testing.T) {
@@ -102,6 +106,71 @@ func TestStatsTrackStreaksAndReplacement(t *testing.T) {
 	stats = replaceCurrentDayFortune(stats, "大吉", "大凶")
 	if stats.Counts["大吉"] != 1 || stats.Counts["大凶"] != 1 || stats.CurrentDajiStreak != 1 || stats.CurrentDaxiongStreak != 1 {
 		t.Fatalf("unexpected replacement stats: %#v", stats)
+	}
+}
+
+func TestMergeSettingsNormalizesInvalidOverrides(t *testing.T) {
+	defaults, err := defaultSettings()
+	if err != nil {
+		t.Fatal(err)
+	}
+	merged := mergeSettings(defaults, map[string]any{
+		"trigger_commands": []any{" 我的运势 ", "我的运势", ""},
+		"timezone":         "Mars/Olympus",
+		"fortunes": []any{
+			map[string]any{"name": "大吉", "stars": "错误星级", "sign": "签", "explanation": "解"},
+		},
+		"special_dates": []any{
+			map[string]any{"date": "02-30", "fortune_name": "大吉"},
+			map[string]any{"date": "02-29", "fortune_name": "大吉"},
+		},
+	})
+	if !reflect.DeepEqual(merged.TriggerCommands, []string{"我的运势"}) {
+		t.Fatalf("trigger commands = %#v", merged.TriggerCommands)
+	}
+	if merged.Timezone != "Asia/Shanghai" || len(merged.Fortunes) != len(defaults.Fortunes) {
+		t.Fatalf("invalid overrides were not restored: %#v", merged)
+	}
+	if len(merged.SpecialDates) != 1 || merged.SpecialDates[0].Date != "02-29" {
+		t.Fatalf("special dates = %#v", merged.SpecialDates)
+	}
+}
+
+func TestRenderIdentityUsesOneBotFallbacks(t *testing.T) {
+	event := &rayleabot.EventContext{Event: rayleabot.Event{
+		Target: rayleabot.Target{Type: "group", ID: "100"},
+		Payload: map[string]any{"onebot": map[string]any{
+			"user_id": "42", "group_name": "测试群",
+			"sender": map[string]any{"nickname": "昵称", "card": "群名片", "title": "头衔"},
+		}},
+	}}
+	user := renderUser(event)
+	if user["id"] != "42" || user["nickname"] != "昵称" || user["group_nickname"] != "群名片" {
+		t.Fatalf("user identity = %#v", user)
+	}
+	if !strings.Contains(user["avatar_url"].(string), "nk=42") {
+		t.Fatalf("avatar = %#v", user["avatar_url"])
+	}
+	if group := renderGroup(event); group["name"] != "100" {
+		t.Fatalf("group fallback = %#v", group)
+	}
+}
+
+func TestStatsRenderDataKeepsLocalDateAndOmitsEmptyRecords(t *testing.T) {
+	stats := updateStats(emptyStats(), "大吉", "2026-08-06")
+	stats = updateStats(stats, "小吉", "2026-08-07")
+	stats = updateStats(stats, "小吉", "2026-08-08")
+	data := statsRenderData(&rayleabot.EventContext{}, settings{Timezone: "Asia/Shanghai"}, stats)
+	if data["subtitle"] == "" || len(data["summary"].([]map[string]any)) != 2 {
+		t.Fatalf("stats metadata = %#v", data)
+	}
+	records := data["records"].([]map[string]any)
+	if len(records) != 1 || records[0]["label"] != "最长连续大吉" {
+		t.Fatalf("stats records = %#v", records)
+	}
+	distribution := data["distribution"].([]map[string]any)
+	if distribution[0]["percentage"] != 33.3 {
+		t.Fatalf("distribution percentage = %#v", distribution[0]["percentage"])
 	}
 }
 

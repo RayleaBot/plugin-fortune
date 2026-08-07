@@ -6,6 +6,7 @@ import (
 	"encoding/binary"
 	"encoding/json"
 	"fmt"
+	"math"
 	"regexp"
 	"strconv"
 	"strings"
@@ -17,6 +18,7 @@ import (
 
 var (
 	fixedTimezonePattern = regexp.MustCompile(`(?i)^(?:UTC)?([+-])(\d{1,2})(?::?(\d{2}))?$`)
+	numericIDPattern     = regexp.MustCompile(`^\d+$`)
 	countedFortunes      = []string{"大吉", "吉", "中吉", "小吉", "末吉", "凶", "大凶", "吉凶未定"}
 	fortuneStars         = map[string]string{
 		"大吉": "★★★★★★★", "吉": "★★★★★★☆", "中吉": "★★★★★☆☆", "小吉": "★★★★☆☆☆",
@@ -165,11 +167,6 @@ func fortuneForDay(current settings, userID, day string) (fortune, bool) {
 		drawable = current.Fortunes
 	}
 	return drawable[stableIndex(len(drawable), userID, day, "fortune")], false
-}
-
-func validFortune(value fortune) bool {
-	return strings.TrimSpace(value.Name) != "" && strings.TrimSpace(value.Stars) != "" &&
-		strings.TrimSpace(value.Sign) != "" && strings.TrimSpace(value.Explanation) != ""
 }
 
 func monthDay(day string) string {
@@ -350,18 +347,34 @@ func writeStats(ctx context.Context, event *rayleabot.EventContext, userID strin
 }
 
 func renderUser(event *rayleabot.EventContext) map[string]any {
-	user := map[string]any{"id": event.Event.Actor.ID, "nickname": event.Event.Actor.Nickname, "title": event.Event.Actor.Role}
-	if event.Event.Actor.ID != "" {
-		user["avatar_url"] = "https://q1.qlogo.cn/g?b=qq&nk=" + event.Event.Actor.ID + "&s=100"
+	onebot, _ := event.Event.Payload["onebot"].(map[string]any)
+	sender, _ := onebot["sender"].(map[string]any)
+	userID := firstText(onebot["user_id"], sender["user_id"], event.Event.Actor.ID)
+	if userID == "" {
+		userID = "unknown"
+	}
+	nickname := firstText(sender["nickname"], event.Event.Actor.Nickname, userID, "访客")
+	user := map[string]any{
+		"id": userID, "nickname": nickname,
+		"group_nickname": firstText(sender["card"]),
+		"title":          firstText(sender["title"], event.Event.Actor.Role),
+		"avatar_url":     "",
+	}
+	if numericIDPattern.MatchString(userID) {
+		user["avatar_url"] = "https://q1.qlogo.cn/g?b=qq&nk=" + userID + "&s=100"
 	}
 	return user
 }
 
 func renderGroup(event *rayleabot.EventContext) map[string]any {
-	if event.Event.Target.Name == "" {
+	if event.Event.Target.Type != "group" {
 		return map[string]any{}
 	}
-	return map[string]any{"name": event.Event.Target.Name}
+	name := firstText(event.Event.Target.Name, event.Event.Target.ID)
+	if name == "" {
+		return map[string]any{}
+	}
+	return map[string]any{"name": name}
 }
 
 func repeatNotice(repeated bool) string {
@@ -383,7 +396,7 @@ func statsSummary(stats fortuneStats) []map[string]any {
 	return result
 }
 
-func statsRenderData(event *rayleabot.EventContext, stats fortuneStats) map[string]any {
+func statsRenderData(event *rayleabot.EventContext, current settings, stats fortuneStats) map[string]any {
 	distribution := make([]map[string]any, 0, len(countedFortunes))
 	totalDraws := 0
 	for _, count := range stats.Counts {
@@ -391,42 +404,78 @@ func statsRenderData(event *rayleabot.EventContext, stats fortuneStats) map[stri
 	}
 	for _, name := range countedFortunes {
 		count := stats.Counts[name]
+		if name != "吉凶未定" && count == 0 && totalDraws == 0 {
+			continue
+		}
+		if name == "吉凶未定" && count == 0 && totalDraws > 0 {
+			continue
+		}
 		percentage := float64(0)
 		if totalDraws > 0 {
-			percentage = float64(count) * 100 / float64(totalDraws)
+			percentage = math.Round(float64(count)*1000/float64(totalDraws)) / 10
 		}
 		distribution = append(distribution, map[string]any{
 			"name": name, "count": count, "percentage": percentage, "stars": fortuneStars[name],
 		})
 	}
+	summary := make([]map[string]any, 0, 2)
+	if stats.TotalDays > 0 {
+		summary = append(summary, map[string]any{"label": "累计查看", "value": fmt.Sprintf("%d 天", stats.TotalDays)})
+	}
+	if stats.CurrentStreak > 0 {
+		summary = append(summary, map[string]any{"label": "当前连续", "value": fmt.Sprintf("%d 天", stats.CurrentStreak)})
+	}
+	records := make([]map[string]any, 0, 2)
+	if stats.LongestDajiStreak > 0 {
+		records = append(records, map[string]any{"label": "最长连续大吉", "value": fmt.Sprintf("%d 天", stats.LongestDajiStreak)})
+	}
+	if stats.LongestDaxiongStreak > 0 {
+		records = append(records, map[string]any{"label": "最长连续大凶", "value": fmt.Sprintf("%d 天", stats.LongestDaxiongStreak)})
+	}
 	return map[string]any{
-		"title": "运势统计", "user": renderUser(event), "group": renderGroup(event),
-		"summary": []map[string]any{
-			{"label": "累计查看", "value": fmt.Sprintf("%d 天", stats.TotalDays)},
-			{"label": "当前连续", "value": fmt.Sprintf("%d 天", stats.CurrentStreak)},
-		},
+		"title": "运势统计", "subtitle": localDay(time.Now(), current.Timezone),
+		"user": renderUser(event), "group": renderGroup(event), "summary": summary,
 		"distribution": distribution,
-		"records": []map[string]any{
-			{"label": "最长连续大吉", "value": fmt.Sprintf("%d 天", stats.LongestDajiStreak)},
-			{"label": "最长连续大凶", "value": fmt.Sprintf("%d 天", stats.LongestDaxiongStreak)},
-		},
+		"records":      records,
 	}
 }
 
-func formatStats(stats fortuneStats) string {
-	lines := []string{
-		"运势统计",
-		fmt.Sprintf("累计查看：%d 天", stats.TotalDays),
-		fmt.Sprintf("当前连续：%d 天", stats.CurrentStreak),
-		"",
-		"运势分布：",
+func formatStats(data map[string]any) string {
+	lines := []string{"运势统计"}
+	for _, item := range mapSlice(data["summary"]) {
+		lines = append(lines, firstText(item["label"])+"："+firstText(item["value"]))
 	}
-	for _, name := range countedFortunes {
-		lines = append(lines, fmt.Sprintf("  %s：%d 次", name, stats.Counts[name]))
+	lines = append(lines, "", "运势分布：")
+	for _, item := range mapSlice(data["distribution"]) {
+		lines = append(lines, fmt.Sprintf("  %s：%v 次（%.1f%%）", firstText(item["name"]), item["count"], floatValue(item["percentage"])))
 	}
-	lines = append(lines, "", "连续记录：",
-		fmt.Sprintf("  最长连续大吉：%d 天", stats.LongestDajiStreak),
-		fmt.Sprintf("  最长连续大凶：%d 天", stats.LongestDaxiongStreak),
-	)
+	if records := mapSlice(data["records"]); len(records) > 0 {
+		lines = append(lines, "", "连续记录：")
+		for _, item := range records {
+			lines = append(lines, "  "+firstText(item["label"])+"："+firstText(item["value"]))
+		}
+	}
 	return strings.Join(lines, "\n")
+}
+
+func firstText(values ...any) string {
+	for _, value := range values {
+		text := strings.TrimSpace(fmt.Sprint(value))
+		if value != nil && text != "" && text != "<nil>" {
+			return text
+		}
+	}
+	return ""
+}
+
+func mapSlice(value any) []map[string]any {
+	if typed, ok := value.([]map[string]any); ok {
+		return typed
+	}
+	return nil
+}
+
+func floatValue(value any) float64 {
+	result, _ := value.(float64)
+	return result
 }

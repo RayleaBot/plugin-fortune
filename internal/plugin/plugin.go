@@ -8,7 +8,6 @@ import (
 	"time"
 
 	rayleabot "github.com/RayleaBot/RayleaBot/sdk/go"
-	"github.com/RayleaBot/plugin-fortune/internal/assets"
 )
 
 type fortune struct {
@@ -19,14 +18,13 @@ type fortune struct {
 }
 
 type settings struct {
-	TriggerCommands      []string       `json:"trigger_commands"`
-	StatsTriggerCommands []string       `json:"stats_trigger_commands"`
-	Timezone             string         `json:"timezone"`
-	Fortunes             []fortune      `json:"fortunes"`
-	SpecialDates         []specialDate  `json:"special_dates"`
-	GoodActions          []string       `json:"good_actions"`
-	BadActions           []string       `json:"bad_actions"`
-	Raw                  map[string]any `json:"-"`
+	TriggerCommands      []string      `json:"trigger_commands"`
+	StatsTriggerCommands []string      `json:"stats_trigger_commands"`
+	Timezone             string        `json:"timezone"`
+	Fortunes             []fortune     `json:"fortunes"`
+	SpecialDates         []specialDate `json:"special_dates"`
+	GoodActions          []string      `json:"good_actions"`
+	BadActions           []string      `json:"bad_actions"`
 }
 
 type dailyRecord struct {
@@ -62,7 +60,7 @@ func handleEvent(ctx context.Context, event *rayleabot.EventContext) error {
 	case "fortune":
 		return sendDailyFortune(ctx, event, current)
 	case "fortune_stats":
-		return sendStats(ctx, event)
+		return sendStats(ctx, event, current)
 	default:
 		return event.Result(map[string]any{"handled": false})
 	}
@@ -91,31 +89,8 @@ func commandMatches(command string, triggers []string) bool {
 	return false
 }
 
-func loadSettings(ctx context.Context, event *rayleabot.EventContext) (settings, error) {
-	var current settings
-	if err := json.Unmarshal(assets.DefaultSettingsJSON, &current); err != nil {
-		return settings{}, fmt.Errorf("decode embedded fortune settings: %w", err)
-	}
-	result, err := event.Actions().ConfigRead(ctx, "trigger_commands", "stats_trigger_commands", "timezone", "fortunes", "special_dates", "good_actions", "bad_actions")
-	if err != nil {
-		return settings{}, err
-	}
-	values, _ := result["values"].(map[string]any)
-	if len(values) > 0 {
-		raw, _ := json.Marshal(values)
-		_ = json.Unmarshal(raw, &current)
-	}
-	if len(current.Fortunes) == 0 {
-		return settings{}, fmt.Errorf("fortune list is empty")
-	}
-	return current, nil
-}
-
 func sendDailyFortune(ctx context.Context, event *rayleabot.EventContext, current settings) error {
-	userID := strings.TrimSpace(event.Event.Actor.ID)
-	if userID == "" {
-		userID = "anonymous"
-	}
+	userID := renderUser(event)["id"].(string)
 	day := localDay(time.Now(), current.Timezone)
 	key := "daily:" + userID + ":" + day
 	record, repeated := readDailyRecord(ctx, event, key)
@@ -165,8 +140,8 @@ func sendDailyFortune(ctx context.Context, event *rayleabot.EventContext, curren
 	return event.SendText(fallback)
 }
 
-func sendStats(ctx context.Context, event *rayleabot.EventContext) error {
-	userID := strings.TrimSpace(event.Event.Actor.ID)
+func sendStats(ctx context.Context, event *rayleabot.EventContext, current settings) error {
+	userID := renderUser(event)["id"].(string)
 	stats, err := readStats(ctx, event, userID)
 	if err != nil {
 		return err
@@ -174,8 +149,8 @@ func sendStats(ctx context.Context, event *rayleabot.EventContext) error {
 	if stats.TotalDays == 0 {
 		return event.SendText("你还没有抽取过运势，发送「我的运势」来抽取今日运势吧！")
 	}
-	data := statsRenderData(event, stats)
-	fallback := formatStats(stats)
+	data := statsRenderData(event, current, stats)
+	fallback := formatStats(data)
 	result, renderErr := event.Actions().RenderImage(ctx, rayleabot.RenderImageRequest{
 		Template: "fortune.stats", Data: data, Output: "png", FallbackText: fallback,
 	})
