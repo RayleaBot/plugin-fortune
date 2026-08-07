@@ -3,7 +3,7 @@ import { computed, ref, watch } from 'vue'
 import { Alert as AAlert } from 'ant-design-vue'
 import { usePluginHost } from '@rayleabot/plugin-ui'
 
-import defaultConfigSource from '../../fortunes.json'
+import defaultConfigSource from '../../internal/assets/fortunes.json'
 import ChipEditor from './components/ChipEditor.vue'
 import {
   buildSettingsPayload,

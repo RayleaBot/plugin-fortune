@@ -2,6 +2,14 @@
 
 `raylea.fortune` 提供每日运势命令与 Vue 管理页面。插件后端、静态管理页面和数据文件共同进入独立 artifact，生产包不随 RayleaBot 主程序打包。
 
+## 目录结构
+
+- `cmd/fortune/`：只负责启动进程。
+- `internal/plugin/`：事件处理、运势逻辑和测试。
+- `internal/assets/`：由 Go 嵌入的默认运势数据；构建时映射为 artifact 根目录的 `fortunes.json`。
+- `ui/`：Vue 管理页面。
+- `tools/build/`：统一组装后端、UI 与数据文件。
+
 ## 本地联调
 
 将本仓库路径写入 RayleaBot 根目录下被忽略的 `plugin-workspace.local.json`，并运行：
