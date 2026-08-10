@@ -43,6 +43,7 @@ button, input, select, textarea { font: inherit; }
 button { cursor: pointer; }
 button:disabled { cursor: not-allowed; opacity: .5; }
 h1, h2, p { margin: 0; }
+.sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; margin: -1px; padding: 0; border: 0; clip: rect(0 0 0 0); white-space: nowrap; }
 
 .page-shell {
   display: flex;
@@ -53,38 +54,7 @@ h1, h2, p { margin: 0; }
   padding: 20px;
 }
 
-.page-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 16px;
-  padding-bottom: 14px;
-  border-bottom: 1px solid var(--border);
-}
-
-.page-heading { display: grid; gap: 4px; }
-h1 { color: var(--text); font-size: 24px; font-weight: 800; letter-spacing: -.5px; }
-.page-heading p, .section-title p { color: var(--muted); font-size: 13px; line-height: 1.5; }
-
-.status-pill {
-  display: inline-flex;
-  flex: 0 0 auto;
-  align-items: center;
-  gap: 6px;
-  padding: 6px 12px;
-  border: 1px solid var(--border);
-  border-radius: 999px;
-  background: var(--surface);
-  color: var(--muted);
-  box-shadow: var(--shadow-sm);
-  font-size: 12px;
-  font-weight: 600;
-  line-height: 1.35;
-}
-
-.status-pill::before { width: 6px; height: 6px; border-radius: 50%; background: var(--accent); content: ""; }
-.status-pill.is-error { color: var(--danger); }
-.status-pill.is-error::before { background: var(--danger); }
+.section-title p { color: var(--muted); font-size: 13px; line-height: 1.5; }
 .host-alert { border-radius: 10px; }
 
 .overview-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 12px; margin-bottom: 4px; }
@@ -231,8 +201,6 @@ select[aria-label="星级"] { padding: 4px 6px; border-color: var(--border); bor
 
 @media (max-width: 760px) {
   .page-shell { padding: 12px; }
-  .page-header { flex-direction: column; align-items: stretch; gap: 12px; }
-  .status-pill { align-self: flex-start; }
   .overview-grid { grid-template-columns: repeat(2, 1fr); }
   .metric:nth-child(5) { grid-column: 1 / -1; }
   .section-title--inline { flex-direction: column; align-items: stretch; gap: 12px; }

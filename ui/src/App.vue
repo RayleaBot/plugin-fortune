@@ -205,13 +205,7 @@ function errorMessage(error: unknown, fallback: string): string {
 
 <template>
   <main class="page-shell">
-    <header class="page-header">
-      <div class="page-heading">
-        <h1>{{ pageTitle }}</h1>
-        <p>管理触发词、时区、特殊日期和运势库</p>
-      </div>
-      <div class="status-pill" :class="{ 'is-error': statusIsError }" aria-live="polite">{{ status }}</div>
-    </header>
+    <h1 class="sr-only">{{ pageTitle }}</h1>
 
     <AAlert v-if="hostErrorMessage" class="host-alert" type="error" :message="hostErrorMessage" show-icon />
 
@@ -411,12 +405,12 @@ function errorMessage(error: unknown, fallback: string): string {
       <span
         class="dirty-state"
         :class="{
-          'is-error': validation.length > 0,
-          'is-dirty': isDirty && validation.length === 0,
-          'is-synced': loaded && !isDirty && validation.length === 0,
+          'is-error': statusIsError || validation.length > 0,
+          'is-dirty': !statusIsError && isDirty && validation.length === 0,
+          'is-synced': !statusIsError && loaded && !isDirty && validation.length === 0,
         }"
         aria-live="polite"
-      >{{ dirtyStateText }}</span>
+      >{{ statusIsError ? status : dirtyStateText }}</span>
       <div class="footer-buttons">
         <button type="button" class="button" :disabled="busy" @click="reload">重新载入</button>
         <button type="button" class="button" :disabled="busy" @click="resetSettings">恢复默认</button>
