@@ -89,7 +89,7 @@ RayleaBot 官方插件 · `raylea.fortune`
 
 ## 开发
 
-插件后端、Vue 管理页和默认运势数据共同进入独立 artifact。生产包不随 RayleaBot 主程序打包。`.rayleabot/` 只属于本地开发，不进入提交或发布包。
+插件后端、Vue 管理页、默认运势数据和渲染模板共同进入独立 artifact。生产包不随 RayleaBot 主程序打包。`.rayleabot/` 只属于本地开发，不进入提交或发布包。
 
 ### 目录结构
 
@@ -98,12 +98,13 @@ plugin-fortune/
   cmd/fortune/                 进程入口
   internal/plugin/             事件处理、运势逻辑和测试
   internal/assets/fortunes.json 默认运势、触发词、宜忌和时区
+  templates/                   运势卡片与统计卡片模板
   ui/                          Vue 管理页
-  tools/build/                 组装后端、UI 与数据文件
+  tools/build/                 组装后端、UI、数据与模板
   info.json
 ```
 
-构建时 `fortunes.json` 映射为 artifact 根目录的同名文件，作为默认配置。
+构建时 `fortunes.json` 映射为 artifact 根目录的同名文件，作为默认配置；`templates/card` 与 `templates/stats` 随插件包发布。
 
 ### 本地联调
 

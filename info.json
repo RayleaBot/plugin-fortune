@@ -1,7 +1,7 @@
 {
   "id": "raylea.fortune",
   "name": "运势",
-  "version": "0.2.4",
+  "version": "0.2.5",
   "manifest_version": "2",
   "plugin_protocol_version": "1",
   "runtime": "go",
@@ -19,6 +19,14 @@
       }
     ]
   },
+  "render_templates": [
+    {
+      "path": "templates/card"
+    },
+    {
+      "path": "templates/stats"
+    }
+  ],
   "capabilities": [
     "event.subscribe",
     "message.send",

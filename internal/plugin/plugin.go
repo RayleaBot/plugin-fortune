@@ -122,7 +122,7 @@ func sendDailyFortune(ctx context.Context, event *rayleabot.EventContext, curren
 	}
 	fallback := formatFortune(record, stats, repeated)
 	result, err := event.Actions().RenderImage(ctx, rayleabot.RenderImageRequest{
-		Template: "fortune.card",
+		Template: "card",
 		Data: map[string]any{
 			"title": "今日运势", "subtitle": record.Date, "fortune": record.Fortune,
 			"today_good": record.TodayGood, "today_bad": record.TodayBad,
@@ -152,7 +152,7 @@ func sendStats(ctx context.Context, event *rayleabot.EventContext, current setti
 	data := statsRenderData(event, current, stats)
 	fallback := formatStats(data)
 	result, renderErr := event.Actions().RenderImage(ctx, rayleabot.RenderImageRequest{
-		Template: "fortune.stats", Data: data, Output: "png", FallbackText: fallback,
+		Template: "stats", Data: data, Output: "png", FallbackText: fallback,
 	})
 	if renderErr == nil {
 		if imagePath, _ := result["image_path"].(string); imagePath != "" {

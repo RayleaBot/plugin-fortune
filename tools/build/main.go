@@ -8,6 +8,7 @@ import (
 func main() {
 	buildcmd.Main(buildcmd.Config{
 		BackendPackage: "./cmd/fortune",
+		Assets:         []string{"templates"},
 		MappedAssets: []pluginbuild.AssetMapping{{
 			Source: "internal/assets/fortunes.json", Destination: "fortunes.json",
 		}},
