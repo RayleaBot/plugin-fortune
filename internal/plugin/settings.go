@@ -24,12 +24,12 @@ func loadSettings(ctx context.Context, event *rayleabot.EventContext) (settings,
 	}
 	result, err := event.Actions().ConfigRead(ctx, "trigger_commands", "stats_trigger_commands", "timezone", "fortunes", "special_dates", "good_actions", "bad_actions")
 	if err != nil {
-		logFortune(ctx, event.Actions(), "warn", "运势设置读取失败，使用默认设置", map[string]any{"error": err.Error()})
+		logFortune(ctx, event.Actions(), "warn", "运势设置读取失败；本次使用内置默认设置，已保存配置未被修改。原因："+err.Error(), map[string]any{"error": err.Error(), "fallback": "built_in_defaults"})
 		return defaults, nil
 	}
 	values, _ := result["values"].(map[string]any)
-	for _, message := range settingsIssueMessages(values) {
-		logFortune(ctx, event.Actions(), "warn", message, nil)
+	for _, issue := range settingsIssueMessages(values) {
+		logFortune(ctx, event.Actions(), "warn", issue.message, issue.fields)
 	}
 	return mergeSettings(defaults, values), nil
 }
@@ -217,15 +217,23 @@ func normalizeTimezone(value string) string {
 	return "Asia/Shanghai"
 }
 
-func settingsIssueMessages(values map[string]any) []string {
+type settingsIssue struct {
+	message string
+	fields  map[string]any
+}
+
+func settingsIssueMessages(values map[string]any) []settingsIssue {
 	if values == nil {
 		return nil
 	}
-	var result []string
+	var result []settingsIssue
 	if raw, exists := values["timezone"]; exists {
 		name := strings.TrimSpace(stringFromAny(raw))
 		if name != "" && normalizeTimezone(name) != name {
-			result = append(result, "运势时区无效，使用默认时区")
+			result = append(result, settingsIssue{
+				message: fmt.Sprintf("运势时区“%s”无效；本次改用默认时区 Asia/Shanghai。", name),
+				fields:  map[string]any{"configured_timezone": name, "fallback_timezone": "Asia/Shanghai"},
+			})
 		}
 	}
 	if raw, exists := values["fortunes"]; exists {
@@ -233,15 +241,29 @@ func settingsIssueMessages(values map[string]any) []string {
 		if ok && len(items) > 0 {
 			valid := len(normalizeFortunes(raw))
 			if valid == 0 {
-				result = append(result, "运势覆盖没有可用条目，使用默认运势库")
+				result = append(result, settingsIssue{
+					message: fmt.Sprintf("运势覆盖共 %d 条，但没有可用条目；本次使用内置默认运势库。", len(items)),
+					fields:  map[string]any{"configured_count": len(items), "valid_count": 0, "fallback": "default_fortunes"},
+				})
 			} else if valid < len(items) {
-				result = append(result, "部分运势条目无效，已跳过")
+				invalid := len(items) - valid
+				result = append(result, settingsIssue{
+					message: fmt.Sprintf("运势覆盖共 %d 条，其中 %d 条无效并已跳过；本次使用其余 %d 条有效内容。", len(items), invalid, valid),
+					fields:  map[string]any{"configured_count": len(items), "valid_count": valid, "invalid_count": invalid},
+				})
 			}
 		}
 	}
 	if raw, exists := values["special_dates"]; exists {
-		if items, ok := raw.([]any); ok && len(normalizeSpecialDates(raw)) < len(items) {
-			result = append(result, "部分特殊日期无效，已跳过")
+		if items, ok := raw.([]any); ok {
+			valid := len(normalizeSpecialDates(raw))
+			if valid < len(items) {
+				invalid := len(items) - valid
+				result = append(result, settingsIssue{
+					message: fmt.Sprintf("特殊日期共 %d 条，其中 %d 条无效并已跳过；本次使用其余 %d 条有效配置。", len(items), invalid, valid),
+					fields:  map[string]any{"configured_count": len(items), "valid_count": valid, "invalid_count": invalid},
+				})
+			}
 		}
 	}
 	return result
