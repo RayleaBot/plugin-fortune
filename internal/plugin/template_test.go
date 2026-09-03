@@ -14,32 +14,11 @@ var stylesheetURLPattern = regexp.MustCompile(`url\(\s*["']?([^"')]+)["']?\s*\)`
 
 func TestRenderTemplatePackageIsComplete(t *testing.T) {
 	pluginRoot := filepath.Clean(filepath.Join("..", ".."))
-	manifestBytes, err := os.ReadFile(filepath.Join(pluginRoot, "info.json"))
-	if err != nil {
-		t.Fatalf("read plugin manifest: %v", err)
-	}
-	var manifest struct {
-		RenderTemplates []struct {
-			Path string `json:"path"`
-		} `json:"render_templates"`
-	}
-	if err := json.Unmarshal(manifestBytes, &manifest); err != nil {
-		t.Fatalf("decode plugin manifest: %v", err)
-	}
-
-	wantIDs := map[string]string{
+	for relativeDir, wantID := range map[string]string{
 		"templates/card":  "card",
 		"templates/stats": "stats",
-	}
-	if len(manifest.RenderTemplates) != len(wantIDs) {
-		t.Fatalf("render template declarations = %d, want %d", len(manifest.RenderTemplates), len(wantIDs))
-	}
-	for _, declaration := range manifest.RenderTemplates {
-		wantID, ok := wantIDs[declaration.Path]
-		if !ok {
-			t.Fatalf("unexpected render template path %q", declaration.Path)
-		}
-		validateRenderTemplatePackage(t, pluginRoot, declaration.Path, wantID)
+	} {
+		validateRenderTemplatePackage(t, pluginRoot, relativeDir, wantID)
 	}
 }
 

@@ -22,12 +22,7 @@ func loadSettings(ctx context.Context, event *rayleabot.EventContext) (settings,
 	if err != nil {
 		return settings{}, err
 	}
-	result, err := event.Actions().ConfigRead(ctx, "trigger_commands", "stats_trigger_commands", "timezone", "fortunes", "special_dates", "good_actions", "bad_actions")
-	if err != nil {
-		logFortune(ctx, event.Actions(), "warn", "运势设置读取失败；本次使用内置默认设置，已保存配置未被修改。原因："+err.Error(), map[string]any{"error": err.Error(), "fallback": "built_in_defaults"})
-		return defaults, nil
-	}
-	values, _ := result["values"].(map[string]any)
+	values := event.Config
 	for _, issue := range settingsIssueMessages(values) {
 		logFortune(ctx, event.Actions(), "warn", issue.message, issue.fields)
 	}

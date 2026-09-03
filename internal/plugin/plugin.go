@@ -37,11 +37,7 @@ type dailyRecord struct {
 }
 
 func Run(ctx context.Context) error {
-	return rayleabot.Run(ctx, rayleabot.Options{
-		PluginID:              "raylea.fortune",
-		Subscriptions:         []string{"message.group", "message.private", "config.changed"},
-		MaxConcurrentHandlers: 4,
-	}, rayleabot.HandlerFunc(handleEvent))
+	return rayleabot.Run(ctx, rayleabot.Options{}, rayleabot.HandlerFunc(handleEvent))
 }
 
 func handleEvent(ctx context.Context, event *rayleabot.EventContext) error {

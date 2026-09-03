@@ -100,11 +100,10 @@ plugin-fortune/
   internal/assets/fortunes.json 默认运势、触发词、宜忌和时区
   templates/                   运势卡片与统计卡片模板
   ui/                          Vue 管理页
-  tools/build/                 组装后端、UI、数据与模板
-  info.json
+  info.json                    manifest v3、权限、默认触发词与发布元数据
 ```
 
-构建时 `fortunes.json` 映射为 artifact 根目录的同名文件，作为默认配置；`templates/card` 与 `templates/stats` 随插件包发布。
+`fortunes.json` 编译进后端并由管理页作为完整默认运势库使用；manifest 内联默认触发词与时区。`templates/card` 与 `templates/stats` 由统一构建器自动发现并随插件包发布。
 
 ### 本地联调
 
@@ -112,10 +111,9 @@ plugin-fortune/
 
 ```json
 {
-  "workspace_version": "1",
+  "workspace_version": "2",
   "plugins": [
     {
-      "id": "raylea.fortune",
       "path": "../RayleaBotPlugins/plugin-fortune",
       "enabled": true
     }
@@ -141,7 +139,8 @@ pnpm --dir ui install --frozen-lockfile
 pnpm --dir ui typecheck
 pnpm --dir ui test
 pnpm --dir ui build
-go run ./tools/build -target windows-x64
+$env:RAYLEA_PLUGIN_BUILD_USE_WORKSPACE = "1"
+go run github.com/RayleaBot/RayleaBot/sdk/go/cmd/raylea-plugin build-go --plugin . --backend ./cmd/fortune --target windows-x64 --out dist
 ```
 
 ### 发布
